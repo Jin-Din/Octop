@@ -43,6 +43,23 @@
 
 借助飞书、钉钉、QQ、微信、企业微信或 HTTP/SSE/WebSocket API 与任意 Agent 对话；通过**专家库**一键创建专业角色，通过 **Connector**（OAuth + MCP）接入外部服务，通过 **ACP** 与 IDE / 终端 AI 工具双向协作。
 
+---
+
+## 🏷️ 本仓库定制记录（Fork customization log）
+
+> 带 **@Jin** 标记的条目为本仓库（`Jin-Din/Octop`）定制内容，非上游 TencentCloud/Octop 官方改动。
+> 分支规则：各分支 README 仅记录本分支的改动；`main` 主线汇总所有已落地的定制。
+> 当前分支：**`octop-sxgis`**（基于标签 `v1.0.2`）。
+
+### `octop-sxgis`
+
+- **@Jin 桌面端：图形化"远端服务器地址"配置项** — 在桌面端（Wails）设置窗新增"服务器地址"输入框。
+  - `desktop/src/settings.go`：`Settings` 新增 `ServerURL` 字段（持久化到 `~/.octop/desktop-settings.json`），并新增 `normalizeServerURL()`（去空白、缺省补 `http`、去尾斜杠、仅允许 http/https）。
+  - `desktop/src/main.go`：连接优先级改为 `settings.serverURL` > 环境变量 `OCTOP_DESKTOP_URL` > 本地 portable 运行时；配置远端后直接连接、本机不启动 Octop 进程；留空保持原有本地行为。
+  - `desktop/src/assets/index.html`：设置窗输入框，中英双语文案，复用已有 `SaveSettings` 保存。
+  - `desktop/src/settings_window.go`：设置窗高度 460 → 492，容纳新增行。
+  - 测试：URL 规范化与持久化单元测试见 `desktop/src/settings_test.go`。
+
 ## ✨ 亮点
 
 | | 特性 | 说明 |

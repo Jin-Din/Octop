@@ -43,6 +43,23 @@
 
 Chat through the Web Dashboard, Feishu, DingTalk, QQ, WeChat, Telegram, Discord, WeCom, or programmatic HTTP/SSE/WebSocket. Extend capabilities with the **expert library**, **Connectors** (OAuth + MCP), and **ACP** integration for IDE workflows.
 
+---
+
+## 🏷️ Fork customization log
+
+> Entries marked **@Jin** are local-fork (`Jin-Din/Octop`) changes, not upstream TencentCloud/Octop.
+> Per-branch rule: each branch README records only that branch's changes; `main` aggregates every shipped customization.
+> Current branch: **`octop-sxgis`** (based on tag `v1.0.2`).
+
+### `octop-sxgis`
+
+- **@Jin Desktop: graphical remote server URL setting** — Added a "Server URL" field to the desktop (Wails) settings window.
+  - `desktop/src/settings.go`: new `Settings.ServerURL` field (persisted to `~/.octop/desktop-settings.json`) + `normalizeServerURL()` (trim, assume `http` when scheme missing, strip trailing slash, allow http/https only).
+  - `desktop/src/main.go`: connection precedence is now `settings.serverURL` > env `OCTOP_DESKTOP_URL` > local portable runtime; a configured remote connects directly and does not spawn a local Octop process; empty value keeps the original local behavior.
+  - `desktop/src/assets/index.html`: settings input box, bilingual (zh/en) labels, saved via the existing `SaveSettings`.
+  - `desktop/src/settings_window.go`: settings window height 460 → 492 to fit the new row.
+  - Tests: URL normalization + persistence unit tests in `desktop/src/settings_test.go`.
+
 ## ✨ Highlights
 
 | | Feature | Description |
