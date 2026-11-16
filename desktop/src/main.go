@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -164,12 +165,24 @@ func (a *App) setStatus(msg string) {
 	a.app.Event.Emit("desktop:status", msg)
 }
 
+// resolveRemoteURL picks the remote Octop address to connect to. Precedence:
+// the persisted settings ServerURL, then the OCTOP_DESKTOP_URL env var. An empty
+// result means the shell should fall back to the bundled portable runtime.
+func (a *App) resolveRemoteURL() string {
+	if a.store != nil {
+		if url := normalizeServerURL(a.store.get().ServerURL); url != "" {
+			return url
+		}
+	}
+	return strings.TrimSpace(os.Getenv("OCTOP_DESKTOP_URL"))
+}
+
 func (a *App) boot() {
 	locale := LocaleEN
 	if a.store != nil {
 		locale = a.store.get().Locale
 	}
-	if url := os.Getenv("OCTOP_DESKTOP_URL"); url != "" {
+	if url := a.resolveRemoteURL(); url != "" {
 		a.setStatus(desktopText(locale, copyStatusConnecting))
 		if err := waitHealth(locale, url, 60*time.Second); err != nil {
 			a.setStatus(err.Error())

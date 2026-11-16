@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 )
 
@@ -22,6 +24,9 @@ type Settings struct {
 	MinimizeToTray bool   `json:"minimizeToTray"`
 	PreventSleep   bool   `json:"preventSleep"`
 	Port           int    `json:"port,omitempty"`
+	// ServerURL optionally points the shell at a remote Octop instance instead
+	// of the bundled portable runtime. Empty means local portable mode.
+	ServerURL string `json:"serverURL,omitempty"`
 }
 
 func defaultSettings() Settings {
@@ -78,7 +83,35 @@ func loadSettings() Settings {
 	if s.Locale != LocaleZH {
 		s.Locale = LocaleEN
 	}
+	s.ServerURL = normalizeServerURL(s.ServerURL)
 	return s
+}
+
+// normalizeServerURL trims whitespace, tolerates a missing scheme by assuming
+// http, drops the trailing slash and rejects anything that is not an http(s)
+// URL. An empty input means local portable mode and always returns "".
+func normalizeServerURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	// A bare host:port like "192.168.1.10:8088" fails url.Parse, so prefix http
+	// when there is no scheme at all. An explicit scheme (http/https/ftp/…) is
+	// kept as-is and validated against the allowlist below.
+	if !strings.Contains(raw, "://") {
+		raw = "http://" + raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return ""
+	}
+	if u.Host == "" {
+		return ""
+	}
+	return strings.TrimRight(raw, "/")
 }
 
 func (st *settingsStore) get() Settings {
@@ -93,6 +126,7 @@ func (st *settingsStore) save(next Settings) error {
 	if next.Port == 0 {
 		next.Port = 8088
 	}
+	next.ServerURL = normalizeServerURL(next.ServerURL)
 	if err := os.MkdirAll(octopHome(), 0o755); err != nil {
 		return err
 	}

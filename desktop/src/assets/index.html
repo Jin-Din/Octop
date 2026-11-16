@@ -239,6 +239,28 @@
         border-color: var(--brand);
         box-shadow: 0 0 0 3px rgba(232, 93, 117, 0.12);
       }
+      .row-server {
+        align-items: flex-start;
+      }
+      .row-server .server-text {
+        min-width: 0;
+      }
+      .text-input {
+        flex-shrink: 0;
+        width: 168px;
+        font: inherit;
+        font-size: 13px;
+        color: var(--text-primary);
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 10px;
+        outline: none;
+      }
+      .text-input:focus {
+        border-color: var(--brand);
+        box-shadow: 0 0 0 3px rgba(232, 93, 117, 0.12);
+      }
       .switch {
         position: relative;
         width: 40px;
@@ -521,6 +543,22 @@
               <option value="en">English</option>
             </select>
           </div>
+          <div class="row row-server">
+            <div class="server-text">
+              <div class="label" id="l-server">服务器地址</div>
+              <small id="h-server"
+                >填写远端地址直接连接，留空使用本机内置运行环境</small
+              >
+            </div>
+            <input
+              type="text"
+              id="server-url"
+              class="text-input"
+              placeholder="http://192.168.1.10:8088"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
           <div class="row">
             <div>
               <div class="label" id="l-auto">开机启动</div>
@@ -572,6 +610,9 @@
           subtitle: "桌面端偏好",
           lang: "语言",
           langH: "选择偏好语言 / Choose your preferred language",
+          server: "服务器地址",
+          serverH: "填写远端地址直接连接，留空使用本机内置运行环境",
+          serverPlaceholder: "http://192.168.1.10:8088",
           auto: "开机启动",
           autoH: "登录系统后自动启动",
           tray: "最小化到托盘",
@@ -592,6 +633,9 @@
           subtitle: "Desktop preferences",
           lang: "Language",
           langH: "Choose your preferred language",
+          server: "Server URL",
+          serverH: "Connect to a remote Octop address; leave empty for the local runtime",
+          serverPlaceholder: "http://192.168.1.10:8088",
           auto: "Launch at login",
           autoH: "Start automatically after you sign in",
           tray: "Minimize to tray",
@@ -626,6 +670,9 @@
         document.getElementById("subtitle").textContent = t.subtitle;
         document.getElementById("l-lang").textContent = t.lang;
         document.getElementById("h-lang").textContent = t.langH;
+        document.getElementById("l-server").textContent = t.server;
+        document.getElementById("h-server").textContent = t.serverH;
+        document.getElementById("server-url").placeholder = t.serverPlaceholder;
         document.getElementById("l-auto").textContent = t.auto;
         document.getElementById("h-auto").textContent = t.autoH;
         document.getElementById("l-tray").textContent = t.tray;
@@ -691,6 +738,7 @@
           autostart: document.getElementById("autostart").checked,
           minimizeToTray: document.getElementById("tray").checked,
           preventSleep: document.getElementById("sleep").checked,
+          serverURL: document.getElementById("server-url").value.trim(),
         };
       }
 
@@ -709,6 +757,7 @@
           });
           document.getElementById("autostart").checked = !!saved.autostart;
           document.getElementById("sleep").checked = !!saved.preventSleep;
+          document.getElementById("server-url").value = saved.serverURL || "";
           errEl.classList.add("hidden");
           applyCopy(saved.locale);
         } catch (error) {
@@ -738,10 +787,14 @@
         document.getElementById("autostart").checked = !!s.autostart;
         document.getElementById("tray").checked = s.minimizeToTray !== false;
         document.getElementById("sleep").checked = !!s.preventSleep;
+        document.getElementById("server-url").value = s.serverURL || "";
 
         for (const id of ["locale", "autostart", "tray", "sleep"]) {
           document.getElementById(id).addEventListener("change", persist);
         }
+        document
+          .getElementById("server-url")
+          .addEventListener("change", persist);
         document
           .getElementById("show-main")
           .addEventListener("click", () => call("ShowMain"));
