@@ -17,6 +17,25 @@ Same as the Octop CLI/server default:
 - Green runtime extract → `~/.octop/portable/`
 - Shell prefs → `~/.octop/desktop-settings.json`
 
+## First-run gate, restart and remote failures
+
+The shell treats the absence of `desktop-settings.json` as first run and blocks
+`boot()` until an onboarding popover (the tray-attached settings window in
+`?onboarding=1` mode) is completed. A lightweight build without a bundled runtime
+(`RuntimeAvailable()` is false) requires a remote URL; a full build allows an
+empty URL to select the local portable runtime.
+
+- Changing the server URL in settings reveals a "Restart now" banner. The
+  cross-platform restart lives in `restart.go` plus `restart_windows.go` /
+  `restart_unix.go`: the local server is stopped, the current executable is
+  relaunched in a detached process group/session, and the old instance quits.
+- When a configured remote fails the health probe, the shell shows an explicit
+  fatal screen (with "Open settings" and "Quit") instead of silently starting
+  the local portable runtime.
+- Server URLs are validated on both the frontend and the Go backend
+  (`validateServerURL`, http/https only); invalid input is rejected, not
+  persisted, and kept in the field for correction.
+
 ## Build green zip
 
 From repo root:

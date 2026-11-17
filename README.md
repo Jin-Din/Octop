@@ -59,6 +59,13 @@ Chat through the Web Dashboard, Feishu, DingTalk, QQ, WeChat, Telegram, Discord,
   - `desktop/src/assets/index.html`: settings input box, bilingual (zh/en) labels, saved via the existing `SaveSettings`.
   - `desktop/src/settings_window.go`: settings window height 460 → 492 to fit the new row.
   - Tests: URL normalization + persistence unit tests in `desktop/src/settings_test.go`.
+- **@Jin Desktop: first-run gate, one-click restart, remote fatal screen, strict URL validation** — Four reliability additions on top of the remote-URL feature (each verified end-to-end on real Windows).
+  - First-run gate: first launch is detected purely from the existence of `~/.octop/desktop-settings.json` (`hasSavedSettings()`, no migration); an onboarding popover blocks `boot()` until configuration is saved. Lightweight shells (`RuntimeAvailable()=false`) require a remote URL; full shells may leave it empty for the local portable runtime.
+  - One-click restart: new cross-platform `restart.go` / `restart_windows.go` / `restart_unix.go`; `RestartApp()` stops the local server and relaunches the exe in a detached process group. Changing the server URL reveals an absolutely-positioned "Restart now" banner that is never clipped by the fixed-height settings window.
+  - Explicit remote failure: when a configured remote fails the 60 s health probe, `emitBootFatal()` shows a fatal screen (URL/detail + "Open settings"/"Quit") and forces the main window visible — it **never silently falls back to the local portable runtime**.
+  - Strict URL validation: new `validateServerURL()` + `ErrInvalidServerURL`, enforced on both frontend and backend; invalid values are not persisted and the input is preserved. An empty string still means local mode (only the full build may leave it empty).
+  - Stability fixes: a startup race between main-window navigation and the hidden settings window's WebView2 `Embed` caused a `Navigate` nil-pointer panic — `boot()` now waits on a two-window `WindowRuntimeReady` counter gate; a redundant `HideWindow` on the relaunched child wrote `STARTUPINFO(SW_HIDE)` and swallowed the first `ShowWindow`, so it was removed (the same-named flag for the portable console in `process_windows.go` is intentionally kept).
+  - Tests: added `TestValidateServerURL` and `TestHasSavedSettings`; window-size/tray/Dock guard tests still pass (`go build`/`go vet`/`go test` green; the pre-existing upstream breakage in `filedrop_test.go` and `process_test.go` is unrelated).
 
 ## ✨ Highlights
 

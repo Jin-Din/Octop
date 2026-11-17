@@ -59,6 +59,13 @@
   - `desktop/src/assets/index.html`：设置窗输入框，中英双语文案，复用已有 `SaveSettings` 保存。
   - `desktop/src/settings_window.go`：设置窗高度 460 → 492，容纳新增行。
   - 测试：URL 规范化与持久化单元测试见 `desktop/src/settings_test.go`。
+- **@Jin 桌面端：首启门控、一键重启、远端致命错误与严格 URL 校验** — 在远端地址功能之上补齐四项可靠性改造（Windows 真机逐项验证）。
+  - 首启强制配置：以 `~/.octop/desktop-settings.json` 是否存在判定首启（`hasSavedSettings()`，零迁移），首启弹 onboarding 并在完成前门控 `boot()`；轻量版（`RuntimeAvailable()=false`）强制填远端，完整版可留空走本地 portable。
+  - 一键重启：新增跨平台 `restart.go` / `restart_windows.go` / `restart_unix.go`，`RestartApp()` 停本地服务后以独立进程组拉起新实例；设置窗改地址后浮现"立即重启"浮层横幅（绝对定位，不被固定高度裁切）。
+  - 远端失败显式报错：已填远端且 60 秒健康探活失败时 `emitBootFatal()` 显示致命错误屏（地址/明细 + "打开设置""退出"）并主动显示主窗，**绝不静默回退本地 portable**。
+  - 严格 URL 校验：新增 `validateServerURL()` + `ErrInvalidServerURL`，前后端双重校验，非法值不写盘、保留输入；空串仍按本地模式（仅完整版可留空）。
+  - 稳定性修复：双 WebView 启动竞争导致的 `Navigate` 空指针 panic（两窗 `WindowRuntimeReady` 计数门后才导航）；重启子进程多余的 `HideWindow` 会经 `STARTUPINFO(SW_HIDE)` 吞掉首显，已移除（`process_windows.go` 给 portable 控制台用的同名标志保留）。
+  - 测试：新增 `TestValidateServerURL`、`TestHasSavedSettings`，窗口尺寸/托盘/Dock 守护测试继续通过（`go build`/`go vet`/`go test` 全绿；`filedrop_test.go`、`process_test.go` 两个上游既有坏测试与本次无关）。
 
 ## ✨ 亮点
 
