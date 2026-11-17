@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -77,4 +78,69 @@ func TestSettingsPersistsServerURL(t *testing.T) {
 	if loadSettings().ServerURL != "" {
 		t.Fatal("expected local portable mode after clearing ServerURL")
 	}
+}
+
+func TestValidateServerURL(t *testing.T) {
+	t.Run("valid and normalised", func(t *testing.T) {
+		cases := []struct {
+			in   string
+			want string
+		}{
+			{"", ""},
+			{"   ", ""},
+			{"  http://192.168.1.10:8088/  ", "http://192.168.1.10:8088"},
+			{"192.168.1.10:8088", "http://192.168.1.10:8088"},
+			{"https://host.example/octop/", "https://host.example/octop"},
+		}
+		for _, tc := range cases {
+			got, err := validateServerURL(tc.in)
+			if err != nil {
+				t.Fatalf("validateServerURL(%q) unexpected error: %v", tc.in, err)
+			}
+			if got != tc.want {
+				t.Fatalf("validateServerURL(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		}
+	})
+
+	t.Run("invalid returns sentinel and empty value", func(t *testing.T) {
+		for _, in := range []string{
+			"ftp://host/file",
+			"http://",
+			"not a url :::",
+			"//no-scheme-host",
+		} {
+			got, err := validateServerURL(in)
+			if !errors.Is(err, ErrInvalidServerURL) {
+				t.Fatalf("validateServerURL(%q) error = %v, want ErrInvalidServerURL", in, err)
+			}
+			if got != "" {
+				t.Fatalf("validateServerURL(%q) = %q, want empty value on error", in, got)
+			}
+		}
+	})
+}
+
+func TestHasSavedSettings(t *testing.T) {
+	t.Run("first run without settings file", func(t *testing.T) {
+		t.Setenv("OCTOP_HOME", t.TempDir())
+		if hasSavedSettings() {
+			t.Fatal("expected first run when desktop-settings.json is absent")
+		}
+	})
+
+	t.Run("configured after settings file exists", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("OCTOP_HOME", home)
+		if err := os.WriteFile(
+			filepath.Join(home, "desktop-settings.json"),
+			[]byte(`{}`),
+			0o644,
+		); err != nil {
+			t.Fatal(err)
+		}
+		if !hasSavedSettings() {
+			t.Fatal("expected configured once desktop-settings.json exists")
+		}
+	})
 }

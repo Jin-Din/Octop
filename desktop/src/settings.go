@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -9,6 +10,12 @@ import (
 	"strings"
 	"sync"
 )
+
+// ErrInvalidServerURL is returned when a non-empty server address cannot be
+// parsed as an http(s) URL. An empty value is always valid and means local
+// portable mode. The stable prefix lets the UI localise the message without
+// leaking Go internals.
+var ErrInvalidServerURL = errors.New("invalid server URL")
 
 type Locale string
 
@@ -56,6 +63,15 @@ func portableDir() string {
 
 func settingsPath() string {
 	return filepath.Join(octopHome(), "desktop-settings.json")
+}
+
+// hasSavedSettings reports whether the user has ever completed configuration.
+// First run is detected purely from the settings file's existence, so no
+// schema field or migration is needed and existing installs are never treated
+// as first run.
+func hasSavedSettings() bool {
+	_, err := os.Stat(settingsPath())
+	return err == nil
 }
 
 type settingsStore struct {
@@ -112,6 +128,27 @@ func normalizeServerURL(raw string) string {
 		return ""
 	}
 	return strings.TrimRight(raw, "/")
+}
+
+// validateServerURL enforces an explicit http(s) URL for a non-empty server
+// address so a typo is reported to the user instead of being silently reset to
+// local portable mode. It returns the normalised URL, or "" with
+// ErrInvalidServerURL when the input is non-empty but invalid. Whitespace-only
+// input is the valid "local mode" choice and returns ("", nil).
+func validateServerURL(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", nil
+	}
+	candidate := trimmed
+	if !strings.Contains(candidate, "://") {
+		candidate = "http://" + candidate
+	}
+	u, err := url.Parse(candidate)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return "", ErrInvalidServerURL
+	}
+	return normalizeServerURL(raw), nil
 }
 
 func (st *settingsStore) get() Settings {

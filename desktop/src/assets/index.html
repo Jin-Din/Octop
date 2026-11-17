@@ -14,8 +14,13 @@
         "--window-controls-inset-end",
         document.documentElement.dataset.chrome === "mac" ? "80px" : "138px",
       );
-      if (new URLSearchParams(location.search).get("settings") === "1") {
-        document.documentElement.dataset.mode = "settings";
+      const params = new URLSearchParams(location.search);
+      if (params.get("settings") === "1") {
+        if (params.get("onboarding") === "1") {
+          document.documentElement.dataset.mode = "onboarding";
+        } else {
+          document.documentElement.dataset.mode = "settings";
+        }
         document.documentElement.style.setProperty(
           "--window-controls-inset-end",
           "36px",
@@ -95,6 +100,7 @@
         display: flex;
         flex-direction: column;
         padding: 44px 20px 28px;
+        position: relative;
       }
       html[data-mode="settings"] #title {
         padding-right: var(--window-controls-inset-end);
@@ -244,6 +250,13 @@
       }
       .row-server .server-text {
         min-width: 0;
+      }
+      .server-input {
+        flex-shrink: 0;
+        width: 168px;
+      }
+      .server-input .text-input {
+        width: 100%;
       }
       .text-input {
         flex-shrink: 0;
@@ -436,6 +449,120 @@
       .hidden {
         display: none !important;
       }
+      /* ---- First-run onboarding: keep only language + server address ---- */
+      html[data-mode="onboarding"] .row-auto,
+      html[data-mode="onboarding"] .row-tray,
+      html[data-mode="onboarding"] .row-sleep {
+        display: none;
+      }
+      html[data-mode="onboarding"] .actions #quit {
+        display: none;
+      }
+      .text-input.invalid {
+        border-color: #dc2626;
+        box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+      }
+      .field-error {
+        display: none;
+        margin-top: 6px;
+        font-size: 12px;
+        line-height: 1.45;
+        color: #b91c1c;
+      }
+      .field-error.show {
+        display: block;
+      }
+      .restart-banner {
+        display: none;
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: var(--brand-soft);
+        border: 1px solid rgba(232, 93, 117, 0.35);
+      }
+      /* Float above the action row so revealing it never grows the fixed-size,
+         overflow:hidden settings layout and gets clipped. */
+      html[data-mode="settings"] .restart-banner,
+      html[data-mode="onboarding"] .restart-banner {
+        position: absolute;
+        left: 20px;
+        right: 20px;
+        bottom: 76px;
+        margin-top: 0;
+        box-shadow: 0 8px 24px rgba(17, 24, 39, 0.14);
+      }
+      .restart-banner.show {
+        display: block;
+      }
+      .restart-banner p {
+        margin: 0 0 8px;
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: #9f1239;
+      }
+      .restart-banner button {
+        width: 100%;
+        padding: 8px 10px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--brand);
+        color: var(--on-brand);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .restart-banner button:hover {
+        background: var(--brand-hover);
+      }
+      /* ---- Fatal remote-connection error screen ---- */
+      .fatal-actions {
+        display: none;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+        margin-top: 4px;
+      }
+      .loading.is-fatal .loading-bar {
+        display: none;
+      }
+      .loading.is-fatal .fatal-actions {
+        display: flex;
+      }
+      .fatal-actions button {
+        width: 100%;
+        padding: 9px 12px;
+        border-radius: 8px;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .fatal-actions .primary {
+        background: var(--brand);
+        color: var(--on-brand);
+        border: 0;
+      }
+      .fatal-actions .primary:hover {
+        background: var(--brand-hover);
+      }
+      .fatal-actions .ghost {
+        background: var(--bg-primary);
+        color: var(--text-secondary);
+        border: 1px solid var(--border);
+      }
+      .fatal-actions .ghost:hover {
+        background: var(--bg-secondary);
+      }
+      .fatal-detail {
+        margin: 0;
+        width: 100%;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--text-tertiary);
+        word-break: break-all;
+        white-space: pre-line;
+      }
     </style>
   </head>
   <body>
@@ -523,6 +650,13 @@
           </div>
           <p class="loading-status" id="status">正在启动，请稍候…</p>
         </div>
+        <p class="fatal-detail hidden" id="fatal-detail"></p>
+        <div class="fatal-actions" id="fatal-actions">
+          <button type="button" class="primary" id="fatal-settings">
+            打开设置
+          </button>
+          <button type="button" class="ghost" id="fatal-quit">退出</button>
+        </div>
       </div>
     </div>
 
@@ -550,16 +684,19 @@
                 >填写远端地址直接连接，留空使用本机内置运行环境</small
               >
             </div>
-            <input
-              type="text"
-              id="server-url"
-              class="text-input"
-              placeholder="http://192.168.1.10:8088"
-              autocomplete="off"
-              spellcheck="false"
-            />
+            <div class="server-input">
+              <input
+                type="text"
+                id="server-url"
+                class="text-input"
+                placeholder="http://192.168.1.10:8088"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <div class="field-error" id="server-error"></div>
+            </div>
           </div>
-          <div class="row">
+          <div class="row row-auto">
             <div>
               <div class="label" id="l-auto">开机启动</div>
               <small id="h-auto">登录系统后自动启动</small>
@@ -569,7 +706,7 @@
               <span></span>
             </label>
           </div>
-          <div class="row">
+          <div class="row row-tray">
             <div>
               <div class="label" id="l-tray">最小化到托盘</div>
               <small id="h-tray"
@@ -581,7 +718,7 @@
               <span></span>
             </label>
           </div>
-          <div class="row">
+          <div class="row row-sleep">
             <div>
               <div class="label" id="l-sleep">防止系统休眠</div>
               <small id="h-sleep">应用运行期间阻止系统自动休眠</small>
@@ -592,8 +729,13 @@
             </label>
           </div>
         </div>
+        <div class="restart-banner" id="restart-banner" role="alert">
+          <p id="restart-text">服务器地址已更改，重启后生效。</p>
+          <button type="button" id="restart-now">立即重启</button>
+        </div>
         <div class="actions">
           <button class="primary" id="show-main">显示 Octop</button>
+          <button class="primary hidden" id="onboarding-done">完成</button>
           <button class="ghost" id="quit">退出</button>
         </div>
         <p class="status hidden" id="settings-status"></p>
@@ -625,6 +767,16 @@
           winMin: "最小化",
           winMax: "最大化",
           winClose: "关闭",
+          onboardingTitle: "初次配置",
+          onboardingSubtitle: "请先确认服务器地址，再开始使用 Octop",
+          onboardingDone: "完成",
+          remoteRequired:
+            "当前为轻量版，未内置本机运行环境，请填写远端服务器地址。",
+          invalidURL: "请输入合法的 http:// 或 https:// 地址，或留空使用本机运行环境。",
+          restartText: "服务器地址已更改，重启后生效。",
+          restartNow: "立即重启",
+          openSettings: "打开设置",
+          fatalQuit: "退出",
         },
         en: {
           statusWait: "Starting, please wait…",
@@ -648,6 +800,19 @@
           winMin: "Minimize",
           winMax: "Maximize",
           winClose: "Close",
+          onboardingTitle: "Welcome to Octop",
+          onboardingSubtitle:
+            "Confirm your server address before you start using Octop",
+          onboardingDone: "Get started",
+          remoteRequired:
+            "This is a lightweight build with no bundled local runtime. A remote server address is required.",
+          invalidURL:
+            "Enter a valid http:// or https:// URL, or leave it empty to use the local runtime.",
+          restartText:
+            "The server address has changed. Restart Octop for it to take effect.",
+          restartNow: "Restart now",
+          openSettings: "Open settings",
+          fatalQuit: "Quit",
         },
       };
 
@@ -666,8 +831,14 @@
 
       function applyCopy(locale) {
         const t = copy[locale] || copy.en;
-        document.getElementById("title").textContent = t.title;
-        document.getElementById("subtitle").textContent = t.subtitle;
+        const onboarding =
+          document.documentElement.dataset.mode === "onboarding";
+        document.getElementById("title").textContent = onboarding
+          ? t.onboardingTitle
+          : t.title;
+        document.getElementById("subtitle").textContent = onboarding
+          ? t.onboardingSubtitle
+          : t.subtitle;
         document.getElementById("l-lang").textContent = t.lang;
         document.getElementById("h-lang").textContent = t.langH;
         document.getElementById("l-server").textContent = t.server;
@@ -681,6 +852,12 @@
         document.getElementById("h-sleep").textContent = t.sleepH;
         document.getElementById("show-main").textContent = t.showMain;
         document.getElementById("quit").textContent = t.quit;
+        document.getElementById("onboarding-done").textContent =
+          t.onboardingDone;
+        document.getElementById("restart-text").textContent = t.restartText;
+        document.getElementById("restart-now").textContent = t.restartNow;
+        document.getElementById("fatal-settings").textContent = t.openSettings;
+        document.getElementById("fatal-quit").textContent = t.fatalQuit;
         document.getElementById("loading-hint").textContent = t.loadingHint;
         applyWindowCopy(t);
       }
@@ -698,11 +875,14 @@
         const btn = event.target.closest("[data-action]");
         if (!btn) return;
         const action = btn.getAttribute("data-action");
-        if (
-          document.documentElement.dataset.mode === "settings" &&
-          action === "close"
-        ) {
+        const mode = document.documentElement.dataset.mode;
+        if (action === "close" && mode === "settings") {
           call("HideSettings");
+          return;
+        }
+        if (action === "close" && mode === "onboarding") {
+          // First-run setup is modal; the only escape is to quit the app.
+          call("Quit");
           return;
         }
         emitWindowAction(action);
@@ -746,11 +926,35 @@
         return document.getElementById("settings-status");
       }
 
+      const serverInput = document.getElementById("server-url");
+      const serverErrorEl = document.getElementById("server-error");
+      const restartBanner = document.getElementById("restart-banner");
+
+      function showServerError(message) {
+        serverErrorEl.textContent = message;
+        serverErrorEl.classList.add("show");
+        serverInput.classList.add("invalid");
+      }
+
+      function clearServerError() {
+        serverErrorEl.classList.remove("show");
+        serverErrorEl.textContent = "";
+        serverInput.classList.remove("invalid");
+      }
+
+      function isInvalidURLError(error) {
+        return /invalid server URL/i.test(String(error));
+      }
+
+      // Persist current form values. Returns true when the settings were
+      // written, false when validation rejected them.
       async function persist() {
         let savedBefore;
         const errEl = settingsStatusEl();
+        clearServerError();
         try {
           savedBefore = await call("GetSettingsStatus");
+          const previousURL = savedBefore.serverURL || "";
           const saved = await call("SaveSettings", {
             ...savedBefore,
             ...current(),
@@ -760,7 +964,24 @@
           document.getElementById("server-url").value = saved.serverURL || "";
           errEl.classList.add("hidden");
           applyCopy(saved.locale);
+          // A changed server address only takes effect after a restart. Never
+          // prompt during first-run onboarding (boot has not started yet).
+          if (
+            document.documentElement.dataset.mode === "settings" &&
+            (saved.serverURL || "") !== previousURL
+          ) {
+            restartBanner.classList.add("show");
+          }
+          return true;
         } catch (error) {
+          if (isInvalidURLError(error)) {
+            // Keep the user's text so they can fix it; nothing was written.
+            showServerError(
+              (copy[locale] || copy.en).invalidURL,
+            );
+            errEl.classList.add("hidden");
+            return false;
+          }
           if (savedBefore) {
             document.getElementById("autostart").checked =
               !!savedBefore.autostart;
@@ -769,18 +990,24 @@
           }
           errEl.textContent = String(error);
           errEl.classList.remove("hidden");
+          return false;
         }
       }
 
-      const settingsMode =
-        new URLSearchParams(window.location.search).get("settings") === "1";
+      const urlParams = new URLSearchParams(window.location.search);
+      const settingsMode = urlParams.get("settings") === "1";
+      const onboardingMode = urlParams.get("onboarding") === "1";
       const s = await call("GetSettingsStatus");
+      const runtimeAvailable = settingsMode
+        ? await call("RuntimeAvailable")
+        : true;
       const locale = s.locale || "en";
       document.getElementById("status").textContent =
         (copy[locale] || copy.en).statusWait;
       applyCopy(locale);
 
       if (settingsMode) {
+        const t = copy[locale] || copy.en;
         document.getElementById("loading-panel").classList.add("hidden");
         document.getElementById("settings-panel").classList.remove("hidden");
         document.getElementById("locale").value = locale;
@@ -792,16 +1019,78 @@
         for (const id of ["locale", "autostart", "tray", "sleep"]) {
           document.getElementById(id).addEventListener("change", persist);
         }
-        document
-          .getElementById("server-url")
-          .addEventListener("change", persist);
+        serverInput.addEventListener("change", persist);
+        // Clear the inline URL error as soon as the user edits the field.
+        serverInput.addEventListener("input", clearServerError);
         document
           .getElementById("show-main")
           .addEventListener("click", () => call("ShowMain"));
         document
           .getElementById("quit")
           .addEventListener("click", () => call("Quit"));
+        document
+          .getElementById("restart-now")
+          .addEventListener("click", () => call("RestartApp"));
+
+        if (onboardingMode) {
+          // First run: hide normal-mode chrome, expose only the "Get started"
+          // action and keep the popover modal.
+          document
+            .getElementById("show-main")
+            .classList.add("hidden");
+          document
+            .getElementById("onboarding-done")
+            .classList.remove("hidden");
+          if (!runtimeAvailable) {
+            document.getElementById("h-server").textContent =
+              t.remoteRequired;
+          }
+          document
+            .getElementById("onboarding-done")
+            .addEventListener("click", async () => {
+              const address = serverInput.value.trim();
+              if (!runtimeAvailable && address === "") {
+                showServerError(t.remoteRequired);
+                return;
+              }
+              const ok = await persist();
+              if (ok) {
+                await call("CompleteOnboarding");
+              }
+            });
+          // Tell the backend the onboarding page is loaded. The popover is a
+          // tray-attached window and can only be shown once the tray is ready,
+          // which is guaranteed by the time this event is handled.
+          Events.Emit("desktop:onboarding-ready");
+        }
       }
+
+      Events.On("desktop:boot-fatal", (ev) => {
+        const payload =
+          typeof ev === "object" && ev !== null
+            ? ev.data ?? ev.payload ?? ev
+            : {};
+        const data = payload || {};
+        const panel = document.getElementById("loading-panel");
+        panel.classList.remove("hidden", "is-error");
+        panel.classList.add("is-fatal");
+        document.getElementById("settings-panel").classList.add("hidden");
+        document.getElementById("status").textContent =
+          data.title || "Connection failed";
+        const hint = document.getElementById("loading-hint");
+        if (data.hint) hint.textContent = data.hint;
+        const detail = document.getElementById("fatal-detail");
+        detail.textContent = [data.url, data.detail]
+          .filter(Boolean)
+          .join("\n");
+        detail.classList.remove("hidden");
+        document
+          .getElementById("fatal-settings")
+          .addEventListener("click", () => call("ShowSettings"));
+        document
+          .getElementById("fatal-quit")
+          .addEventListener("click", () => call("Quit"));
+      });
 
       Events.On("desktop:status", (ev) => {
         const msg =
